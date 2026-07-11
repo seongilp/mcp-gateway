@@ -1,0 +1,61 @@
+# LiteLLM MCP Gateway
+#
+# litellm = LLM 프록시 + MCP 게이트웨이. 여러 MCP 서버를 뒤에 묶어
+# 사내 클라이언트(Claude Code 등)에 단일 주소(/mcp)로 노출한다.
+# Bifrost와 달리 LLM 프록시(키/비용/거버넌스)와 MCP를 한 체계에서 관리한다.
+#
+# 구성:
+#   - litellm    : 게이트웨이 본체 (http://localhost:4000, 웹 UI /ui 포함)
+#   - db         : Postgres (Virtual Keys / 사용량 / MCP 등록 영속화 → 거버넌스·UI용)
+#   - everything : MCP 레퍼런스 서버 (echo, get-sum 등) — "동작하는 예시" upstream
+#
+# MCP 서버 추가/교체는 litellm-config.yaml 의 mcp_servers 만 수정하면 된다.
+
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm-gateway
+    ports:
+      - "4000:4000" # 게이트웨이 + 웹 UI(/ui) + MCP(/mcp)
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml:ro
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-1234}
+      # 거버넌스/UI/MCP 등록을 DB에 영속화
+      DATABASE_URL: postgresql://llmproxy:dbpassword@db:5432/litellm
+      STORE_MODEL_IN_DB: "True"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    container_name: litellm-db
+    environment:
+      POSTGRES_USER: llmproxy
+      POSTGRES_PASSWORD: dbpassword
+      POSTGRES_DB: litellm
+    volumes:
+      - litellm_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U llmproxy -d litellm"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  # ── 예시 MCP 서버: everything (MCP 레퍼런스 서버) ──
+  # streamableHttp 모드로 3001/mcp 에서 서비스. 다른 MCP 서버로 바꾸려면
+  # 이 서비스를 교체하고 litellm-config.yaml의 entry만 맞추면 된다.
+  everything:
+    image: node:22-alpine
+    container_name: mcp-everything-demo
+    command: ["npx", "-y", "@modelcontextprotocol/server-everything", "streamableHttp"]
+    expose:
+      - "3001" # litellm이 내부 네트워크로 http://everything:3001/mcp 접근
+    restart: unless-stopped
+
+volumes:
+  litellm_pg:

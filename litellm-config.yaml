@@ -1,0 +1,36 @@
+# LiteLLM 프록시 설정 — MCP 게이트웨이 용도
+#
+# MCP 전용 배포이므로 model_list(LLM 모델)는 필수가 아니다.
+# LLM 프록시도 같이 쓰려면 model_list에 모델을 추가하면 된다.
+#
+# 클라이언트 접속:
+#   엔드포인트  : http://localhost:4000/mcp        (전체 서버 도구 집계)
+#                http://localhost:4000/mcp/everything (특정 서버만)
+#   인증 헤더   : x-litellm-api-key: Bearer <LITELLM_MASTER_KEY 또는 Virtual Key>
+
+general_settings:
+  # Virtual Keys / 사용량 / MCP 등록을 DB에 저장 (거버넌스·UI)
+  store_model_in_db: true
+
+# ── MCP 서버 등록 ──
+# transport: http(=streamable HTTP) | sse | stdio
+mcp_servers:
+  everything:
+    url: "http://everything:3001/mcp"
+    transport: "http"
+    description: "MCP 레퍼런스 서버 (echo, get-sum, get-env, get-tiny-image 등)"
+    # PoC: 유효한 키(마스터 포함)면 모두 접근 허용.
+    # 운영에서는 false로 두고 팀/Virtual Key 단위로 접근을 명시적으로 부여한다(secure-by-default).
+    allow_all_keys: true
+
+  # 예시) BigQuery toolbox 같은 다른 HTTP MCP 서버 추가:
+  # bigquery:
+  #   url: "http://toolbox:5000/mcp"
+  #   transport: "http"
+  #   description: "BigQuery MCP (Google MCP Toolbox)"
+
+  # 예시) STDIO 로컬 프로세스 MCP 서버:
+  # filesystem:
+  #   transport: "stdio"
+  #   command: "npx"
+  #   args: ["-y", "@modelcontextprotocol/server-filesystem", "/data"]

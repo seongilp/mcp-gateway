@@ -1,0 +1,7 @@
+services:
+  everything:
+    image: node:22-alpine
+    container_name: mcp-everything-demo
+    command: ["npx","-y","@modelcontextprotocol/server-everything","streamableHttp"]
+    expose:
+      - "3001"
