@@ -50,7 +50,7 @@ services:
   # streamableHttp 모드로 3001/mcp 에서 서비스. 다른 MCP 서버로 바꾸려면
   # 이 서비스를 교체하고 litellm-config.yaml의 entry만 맞추면 된다.
   everything:
-    image: node:22-alpine
+    image: node:26-alpine
     container_name: mcp-everything-demo
     command: ["npx", "-y", "@modelcontextprotocol/server-everything", "streamableHttp"]
     expose:
